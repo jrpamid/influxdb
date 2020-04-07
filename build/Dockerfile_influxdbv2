@@ -1,6 +1,6 @@
 
 # default base image alpine version
-ARG alpine_ver=3.10
+ARG alpine_ver=latest
 
 FROM alpine:${alpine_ver}
 
@@ -14,7 +14,7 @@ ENV INFLUXDB_PKG=influxdb_2.0.0-beta.7_linux_amd64.tar.gz \
 
 RUN set -x \
     && apk update \
-    && apk add --no-cache tar ca-certificates \
+    && apk add --no-cache tar \
     && addgroup ${INFLUX_USER} \
     && adduser -S -G ${INFLUX_USER} ${INFLUX_USER} \
     && mkdir -p /opt/influxdb2 \
@@ -29,6 +29,6 @@ EXPOSE 9999
 
 USER ${INFLUX_USER}
 
-ENTRYPOINT ["influxd"]
+ENTRYPOINT ["influxd", "--reporting-disabled"]
 CMD ["run"]
      

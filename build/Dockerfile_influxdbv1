@@ -1,6 +1,6 @@
 
 # default base image alpine version
-ARG alpine_ver=3.10
+ARG alpine_ver=latest
 ARG influxdb_ver=1.7.10
 
 FROM alpine:${alpine_ver}
@@ -8,27 +8,36 @@ FROM alpine:${alpine_ver}
 
 ARG influxdb_ver
 ENV INFLUXDB_VER=${influxdb_ver}
-ENV INFLUXDB_PKG=influxdb_${INFLUXDB_VER}_linux_amd64.tar.gz \
+ENV INFLUXDB_PKG=influxdb-${INFLUXDB_VER}_linux_amd64.tar.gz \
     INFLUX_USER=influx \
     INFLUXDB_HOME=/opt/influxdb \
     INFLUXDB_META=/influxdb/meta \
     INFLUXDB_DATA=/influxdb/data \
-    INFLUXDB_WAL=/influxdb/wal
+    INFLUXDB_WAL=/influxdb/wal \
+    # glibc package is required for running c compiled programs
+    GLIBC_DOWNLOAD_URL=https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.31-r0/glibc-2.31-r0.apk \
+    GLIBC_DOWNLOAD_KEY=https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub
 
-COPY ["files-to-add/conf/influxdbv2.conf", "/tmp"]
+COPY ["files-to-add/conf/influxdbv1.conf", "/tmp/conf/influxdbv1.conf"]
 
 RUN set -x \
     && apk update \
-    && apk add --no-cache tar ca-certificates \
+    && apk add --no-cache \
     && addgroup ${INFLUX_USER} \
     && adduser -S -G ${INFLUX_USER} ${INFLUX_USER} \
     && mkdir -p ${INFLUXDB_HOME} ${INFLUXDB_META} ${INFLUXDB_DATA} ${INFLUXDB_WAL} \
-    && wget -q https://dl.influxdata.com/influxdb/releases/${INFLUXDB_PKG} -O /tmp/${INFLUXDB_PKG} \
-    && tar xzf /tmp/${INFLUXDB_PKG} -C ${INFLUXDB_HOME} --strip-components=1 \
+    && cd /tmp \
+    && wget -q -O /etc/apk/keys/sgerrand.rsa.pub ${GLIBC_DOWNLOAD_KEY} \
+    && wget -q ${GLIBC_DOWNLOAD_URL} \
+    && apk add glibc-2.31-r0.apk \
+    && wget -q https://dl.influxdata.com/influxdb/releases/${INFLUXDB_PKG} -O ${INFLUXDB_PKG} \
+    && tar xzf ${INFLUXDB_PKG} -C ${INFLUXDB_HOME} --strip-components=2 \
     && cp /tmp/conf/influxdbv1.conf ${INFLUXDB_HOME} \
-    && cp ${INFLUXDB_HOME}/influxd /usr/local/bin \
-    && cp ${INFLUXDB_HOME}/influx /usr/local/bin \
-    && rm -f /tmp/${INFLUXDB_PKG} /tmp/influx* \
+    && chmod -R 775 ${INFLUXDB_HOME} ${INFLUXDB_DATA} ${INFLUXDB_META} ${INFLUXDB_WAL} \
+    && chown -R ${INFLUX_USER}:${INFLUX_USER} ${INFLUXDB_HOME} ${INFLUXDB_DATA} ${INFLUXDB_META} ${INFLUXDB_WAL} \
+    && cp ${INFLUXDB_HOME}/usr/bin/* /usr/local/bin \
+    && ls -l /usr/local/bin \
+    && rm -Rf /tmp/${INFLUXDB_PKG} /tmp/influx* /tmp/* ${INFLUXDB_HOME}/usr/share ${INFLUXDB_HOME}/var \
     && rm -Rf /var/cache/apk 
 
 EXPOSE 8088 8086 
@@ -37,9 +46,11 @@ USER ${INFLUX_USER}
 
 LABEL maintainer=jrpamid.cloudops@gmail.com \
       app_name=influxdb \
-      app_version=${INFLUXDB_VER}\                                                                                                                                                app_description="Opensource Timeseries Database, version 2.0. Include Telegraf,InfluxDB,Chronograf,Kapacitor (TICK stack)"
+      app_version=${INFLUXDB_VER}\
+      app_description="Opensource Timeseries Database"
 
+WORKDIR ${INFLUXDB_HOME}/usr/bin
 
 ENTRYPOINT ["influxd"]
-CMD ["--config","/opt/influxdb/influxdbv1.conf"]
+CMD ["--config", "/opt/influxdb/influxdbv1.conf"]
      
