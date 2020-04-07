@@ -1,0 +1,34 @@
+
+# default base image alpine version
+ARG alpine_ver=3.10
+
+FROM alpine:${alpine_ver}
+
+LABEL maintainer=jrpamid.cloudops@gmail.com \
+      app_name=influxdb \
+      app_version=2.0 \
+      app_description="Opensource Timeseries Database, version 2.0. Include Telegraf,InfluxDB,Chronograf,Kapacitor (TICK stack)"
+
+ENV INFLUXDB_PKG=influxdb_2.0.0-beta.7_linux_amd64.tar.gz \
+    INFLUX_USER=influx
+
+RUN set -x \
+    && apk update \
+    && apk add --no-cache tar ca-certificates \
+    && addgroup ${INFLUX_USER} \
+    && adduser -S -G ${INFLUX_USER} ${INFLUX_USER} \
+    && mkdir -p /opt/influxdb2 \
+    && wget -q https://dl.influxdata.com/influxdb/releases/${INFLUXDB_PKG} -O /tmp/${INFLUXDB_PKG} \
+    && tar xzf /tmp/${INFLUXDB_PKG} -C /opt/influxdb2/ --strip-components=1 \
+    && cp /opt/influxdb2/influxd /usr/local/bin \
+    && cp /opt/influxdb2/influx /usr/local/bin \
+    && rm -f /tmp/${INFLUXDB_PKG} \
+    && rm -Rf /var/cache/apk 
+
+EXPOSE 9999
+
+USER ${INFLUX_USER}
+
+ENTRYPOINT ["influxd"]
+CMD ["run"]
+     

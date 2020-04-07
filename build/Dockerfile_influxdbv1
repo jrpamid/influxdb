@@ -1,0 +1,45 @@
+
+# default base image alpine version
+ARG alpine_ver=3.10
+ARG influxdb_ver=1.7.10
+
+FROM alpine:${alpine_ver}
+
+
+ARG influxdb_ver
+ENV INFLUXDB_VER=${influxdb_ver}
+ENV INFLUXDB_PKG=influxdb_${INFLUXDB_VER}_linux_amd64.tar.gz \
+    INFLUX_USER=influx \
+    INFLUXDB_HOME=/opt/influxdb \
+    INFLUXDB_META=/influxdb/meta \
+    INFLUXDB_DATA=/influxdb/data \
+    INFLUXDB_WAL=/influxdb/wal
+
+COPY ["files-to-add/conf/influxdbv2.conf", "/tmp"]
+
+RUN set -x \
+    && apk update \
+    && apk add --no-cache tar ca-certificates \
+    && addgroup ${INFLUX_USER} \
+    && adduser -S -G ${INFLUX_USER} ${INFLUX_USER} \
+    && mkdir -p ${INFLUXDB_HOME} ${INFLUXDB_META} ${INFLUXDB_DATA} ${INFLUXDB_WAL} \
+    && wget -q https://dl.influxdata.com/influxdb/releases/${INFLUXDB_PKG} -O /tmp/${INFLUXDB_PKG} \
+    && tar xzf /tmp/${INFLUXDB_PKG} -C ${INFLUXDB_HOME} --strip-components=1 \
+    && cp /tmp/conf/influxdbv1.conf ${INFLUXDB_HOME} \
+    && cp ${INFLUXDB_HOME}/influxd /usr/local/bin \
+    && cp ${INFLUXDB_HOME}/influx /usr/local/bin \
+    && rm -f /tmp/${INFLUXDB_PKG} /tmp/influx* \
+    && rm -Rf /var/cache/apk 
+
+EXPOSE 8088 8086 
+
+USER ${INFLUX_USER}
+
+LABEL maintainer=jrpamid.cloudops@gmail.com \
+      app_name=influxdb \
+      app_version=${INFLUXDB_VER}\                                                                                                                                                app_description="Opensource Timeseries Database, version 2.0. Include Telegraf,InfluxDB,Chronograf,Kapacitor (TICK stack)"
+
+
+ENTRYPOINT ["influxd"]
+CMD ["--config","/opt/influxdb/influxdbv1.conf"]
+     
