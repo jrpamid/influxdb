@@ -1,4 +1,4 @@
-![InfluxDB](logo.png){width=25% height=25%}
+![InfluxDB](logo.png=205x)
 
 
 # InfluxDB
